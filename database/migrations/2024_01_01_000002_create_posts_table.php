@@ -1,62 +1,42 @@
-            $table->id('page_id');
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('posts', function (Blueprint $table) {
+            $table->id('post_id');
+            $table->unsignedBigInteger('author_id')->nullable();
             $table->string('title', 255);
             $table->string('slug', 280);
+            $table->text('excerpt')->nullable();
             $table->longText('content');
             $table->string('thumbnail', 255)->nullable();
-            $table->tinyInteger('is_published')->default(0);
-            $table->unsignedSmallInteger('order')->default(0);
+            $table->enum('status', ['draft', 'published', 'archived'])->default('draft');
+            $table->timestamp('published_at')->nullable();
             $table->string('meta_title', 160)->nullable();
             $table->string('meta_description', 255)->nullable();
+            $table->string('meta_keywords', 255)->nullable();
             $table->timestamps();
-            $table->unique('slug', 'idx_unique_page_slug');
-            $table->index('is_published', 'idx_is_published');
-            $table->id('teacher_id');
-            $table->string('name', 100);
-            $table->string('photo', 255)->nullable();
-            $table->string('position', 100);
-            $table->string('subject', 100)->nullable();
-            $table->text('bio')->nullable();
-            $table->unsignedSmallInteger('order')->default(0);
-            $table->tinyInteger('is_active')->default(1);
-            $table->timestamps();
-            $table->index('is_active', 'idx_teacher_is_active');
-            $table->index('order', 'idx_teacher_order');
-            $table->id('testimonial_id');
-            $table->string('name', 100);
-            $table->string('role', 100)->nullable();
-            $table->text('content');
-            $table->string('photo', 255)->nullable();
-            $table->tinyInteger('rating')->nullable();
-            $table->tinyInteger('is_published')->default(0);
-            $table->unsignedSmallInteger('order')->default(0);
-            $table->timestamp('created_at')->useCurrent();
-            $table->index('is_published', 'idx_testimonial_is_published');
-            $table->id('alumni_id');
-            $table->string('name', 100);
-            $table->year('graduation_year');
-            $table->string('photo', 255)->nullable();
-            $table->string('current_institution', 150)->nullable();
-            $table->string('major', 100)->nullable();
-            $table->text('achievement')->nullable();
-            $table->tinyInteger('is_published')->default(0);
-            $table->timestamp('created_at')->useCurrent();
-            $table->index('graduation_year', 'idx_alumni_graduation_year');
-            $table->index('is_published', 'idx_alumni_is_published');
-            $table->id('registration_id');
-            $table->string('registration_number', 30);
-            $table->string('full_name', 100);
-            $table->date('birth_date');
-            $table->string('birth_place', 100);
-            $table->enum('gender', ['L', 'P']);
-            $table->text('address');
-            $table->string('phone', 20);
-            $table->string('parent_name', 100);
-            $table->string('parent_phone', 20);
-            $table->string('previous_school', 150);
-            $table->string('academic_year', 10);
-            $table->enum('status', ['pending', 'verified', 'accepted', 'rejected'])->default('pending');
-            $table->text('notes')->nullable();
-            $table->timestamps();
-            $table->unique('registration_number', 'idx_registration_number');
-            $table->index('status', 'idx_status');
-            $table->index('academic_year', 'idx_academic_year');
+
+            $table->unique('slug', 'idx_unique_post_slug');
+            $table->index('status', 'idx_post_status');
+            $table->index('published_at', 'idx_post_published_at');
+            $table->index('author_id', 'idx_post_author_id');
+
+            $table->foreign('author_id')
+                  ->references('id')
+                  ->on('users')
+                  ->onDelete('set null');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('posts');
+    }
+};
