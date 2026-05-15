@@ -55,8 +55,8 @@ class RegistrationController extends Controller
             'documents.*.type'       => 'required|string|max:50',
         ]);
 
-        foreach ($request->file('documents') as $item) {
-            $file  = $item['file'];
+        foreach ($request->input('documents') as $index => $item) {
+            $file  = $request->file("documents.{$index}.file");
             $path  = $file->store('ppdb-documents', 'public');
 
             $media = Media::create([
