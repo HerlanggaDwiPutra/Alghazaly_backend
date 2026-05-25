@@ -164,3 +164,34 @@ test('destroy post berhasil', function () {
     $response->assertStatus(200);
     $this->assertDatabaseMissing('posts', ['post_id' => $post->post_id]);
 });
+
+test('update post published_at tidak di-replace jika sudah ada', function () {
+    $originalDate = now()->subDays(5);
+    $post = Post::factory()->create([
+        'author_id' => $this->adminUser->id,
+        'status' => 'published',
+        'published_at' => $originalDate,
+    ]);
+
+    $response = actingAs($this->adminUser)->patchJson('/api/admin/posts/' . $post->post_id, [
+        'status' => 'published',
+    ]);
+
+    $response->assertStatus(200);
+    $updatedPost = Post::find($post->post_id);
+    expect($updatedPost->published_at->toDateTimeString())->toBe($originalDate->toDateTimeString());
+});
+
+test('update post dengan sync categories kosong', function () {
+    $category = Category::factory()->create();
+    $post = Post::factory()->create(['author_id' => $this->adminUser->id]);
+    $post->categories()->attach($category->category_id);
+    expect($post->categories()->count())->toBe(1);
+
+    $response = actingAs($this->adminUser)->patchJson('/api/admin/posts/' . $post->post_id, [
+        'categories' => [],
+    ]);
+
+    $response->assertStatus(200);
+    expect($post->fresh()->categories()->count())->toBe(0);
+});

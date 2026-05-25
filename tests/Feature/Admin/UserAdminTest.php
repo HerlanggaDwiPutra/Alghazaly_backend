@@ -90,3 +90,31 @@ test('get roles', function () {
 
     $response->assertStatus(200);
 });
+
+test('show user detail', function () {
+    $user = User::factory()->create();
+
+    $response = actingAs($this->adminUser)->getJson('/api/admin/users/' . $user->id);
+
+    $response->assertStatus(200)
+             ->assertJsonPath('id', $user->id);
+});
+
+test('update user dengan password baru', function () {
+    $user = User::factory()->create();
+
+    $response = actingAs($this->adminUser)->patchJson('/api/admin/users/' . $user->id, [
+        'password' => 'newpassword123',
+    ]);
+
+    $response->assertStatus(200);
+    $updatedUser = User::find($user->id);
+    expect(\Illuminate\Support\Facades\Hash::check('newpassword123', $updatedUser->password))->toBeTrue();
+});
+
+test('destroy user sendiri ditolak (403)', function () {
+    $response = actingAs($this->adminUser)->deleteJson('/api/admin/users/' . $this->adminUser->id);
+
+    $response->assertStatus(403)
+             ->assertJson(['message' => 'Tidak dapat menghapus akun sendiri.']);
+});

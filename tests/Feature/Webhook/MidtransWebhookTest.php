@@ -160,3 +160,32 @@ test('webhook order id tidak ditemukan', function () {
     $response->assertStatus(404)
              ->assertJson(['message' => 'Order tidak ditemukan.']);
 });
+
+test('webhook status pending tidak mengubah status payment', function () {
+    Config::set('services.midtrans.server_key', 'test-server-key');
+
+    $payment = Payment::factory()->create([
+        'order_id' => 'ORDER-PENDING',
+        'status' => 'pending',
+    ]);
+
+    $orderId = 'ORDER-PENDING';
+    $statusCode = '200';
+    $grossAmount = '500000.00';
+    $signatureKey = hash('sha512', $orderId . $statusCode . $grossAmount . 'test-server-key');
+
+    $response = postJson('/api/webhooks/midtrans', [
+        'order_id' => $orderId,
+        'status_code' => $statusCode,
+        'gross_amount' => $grossAmount,
+        'transaction_status' => 'pending',
+        'signature_key' => $signatureKey,
+    ]);
+
+    $response->assertStatus(200);
+
+    $this->assertDatabaseHas('payments', [
+        'payment_id' => $payment->payment_id,
+        'status' => 'pending',
+    ]);
+});

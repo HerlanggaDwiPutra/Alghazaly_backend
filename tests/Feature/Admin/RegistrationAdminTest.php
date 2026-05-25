@@ -68,3 +68,37 @@ test('update status validasi enum', function () {
     $response->assertStatus(422)
              ->assertJsonValidationErrors(['status']);
 });
+
+test('index filter by academic_year', function () {
+    Registration::factory()->create(['academic_year' => '2024/2025']);
+    Registration::factory()->create(['academic_year' => '2025/2026']);
+
+    $response = actingAs($this->adminUser)->getJson('/api/admin/registrations?academic_year=2024/2025');
+
+    $response->assertStatus(200);
+    $data = $response->json('data');
+    expect(count($data))->toBe(1);
+    expect($data[0]['academic_year'])->toBe('2024/2025');
+});
+
+test('index filter by search nama', function () {
+    Registration::factory()->create(['full_name' => 'Ahmad Rizky']);
+    Registration::factory()->create(['full_name' => 'Budi Santoso']);
+
+    $response = actingAs($this->adminUser)->getJson('/api/admin/registrations?search=Ahmad');
+
+    $response->assertStatus(200);
+    $data = $response->json('data');
+    expect(count($data))->toBe(1);
+    expect($data[0]['full_name'])->toBe('Ahmad Rizky');
+});
+
+test('index filter by search nomor registrasi', function () {
+    $reg = Registration::factory()->create();
+
+    $response = actingAs($this->adminUser)->getJson('/api/admin/registrations?search=' . substr($reg->registration_number, 0, 8));
+
+    $response->assertStatus(200);
+    $data = $response->json('data');
+    expect(count($data))->toBeGreaterThanOrEqual(1);
+});

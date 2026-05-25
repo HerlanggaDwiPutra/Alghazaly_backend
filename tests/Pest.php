@@ -41,7 +41,11 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+function createAdminUser(): \App\Models\User
 {
-    // ..
+    $role = \App\Models\Role::factory()->create(['name' => 'admin']);
+    return \App\Models\User::factory()->create([
+        'role_id'   => $role->role_id,
+        'is_active' => true,
+    ]);
 }
