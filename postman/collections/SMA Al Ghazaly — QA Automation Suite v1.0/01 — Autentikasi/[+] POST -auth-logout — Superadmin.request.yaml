@@ -1,0 +1,19 @@
+$kind: http-request
+name: "[+] POST /auth/logout — Superadmin"
+url: "{{base_url}}/auth/logout"
+method: POST
+headers:
+  Authorization: Bearer {{token_superadmin}}
+  Accept: application/json
+scripts:
+  - type: afterResponse
+    code: |-
+      var res = pm.response.json();
+      pm.test('[HTTP] Status 200 OK', function () { pm.response.to.have.status(200); });
+      pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });
+      pm.test('[Bisnis] Response mengandung pesan logout', function () { pm.expect(res).to.have.property('message').that.is.a('string'); });
+      pm.environment.unset('token_superadmin');
+      pm.environment.unset('token_superadmin_fetched_at');
+      console.log('[AUTH] token_superadmin dihapus setelah logout.');
+    language: text/javascript
+order: 7000

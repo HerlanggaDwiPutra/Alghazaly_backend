@@ -1,0 +1,33 @@
+$kind: http-request
+name: "[+] POST /registrations — Submit Pendaftaran Baru"
+url: "{{base_url}}/registrations"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: text
+  content: '{"full_name": "Calon Siswa QA Test", "birth_date": "2010-05-15", "birth_place": "Bandung", "gender": "L", "address": "Jl. QA Test No.1 Bandung", "phone": "082100000001", "parent_name": "Orang Tua QA", "parent_phone": "082100000002", "previous_school": "SMP QA Negeri 1", "academic_year": "2025/2026"}'
+scripts:
+  - type: afterResponse
+    code: |-
+      var res = pm.response.json();
+      pm.test('[HTTP] Status 201 Created', function () { pm.response.to.have.status(201); });
+      pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });
+      pm.test('[Schema] POST /registrations sesuai kontrak', function () {
+          pm.expect(res).to.have.property('message').that.is.a('string');
+          pm.expect(res).to.have.property('registration_number').that.is.a('string');
+          pm.expect(res).to.have.property('registration_id').that.is.a('number');
+      });
+      pm.test('[Bisnis] Format nomor PPDB-YYYY-XXXXXX', function () {
+          pm.expect(res.registration_number).to.match(/^PPDB-\d{4}-[A-Z0-9]+$/);
+      });
+      pm.test('[Bisnis] Pesan konfirmasi pendaftaran berhasil', function () {
+          pm.expect(res.message.toLowerCase()).to.match(/berhasil|sukses|registered|created/);
+      });
+      if (res.registration_number) {
+          pm.environment.set('registration_number', res.registration_number);
+          console.log('[ENV] registration_number=', res.registration_number);
+      }
+    language: text/javascript
+order: 4000

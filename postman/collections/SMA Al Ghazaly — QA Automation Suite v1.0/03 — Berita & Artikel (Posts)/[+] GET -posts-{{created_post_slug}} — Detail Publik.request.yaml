@@ -1,0 +1,22 @@
+$kind: http-request
+name: "[+] GET /posts/{{created_post_slug}} — Detail Publik"
+url: "{{base_url}}/posts/{{created_post_slug}}"
+method: GET
+headers:
+  Accept: application/json
+scripts:
+  - type: afterResponse
+    code: |-
+      var res = pm.response.json();
+      pm.test('[HTTP] Status 200 OK', function () { pm.response.to.have.status(200); });
+      pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });
+      pm.test('[Schema] Struktur detail post sesuai kontrak', function () {
+          pm.expect(res).to.have.property('post_id').that.is.a('number');
+          pm.expect(res).to.have.property('title').that.is.a('string');
+          pm.expect(res).to.have.property('slug').that.is.a('string');
+          pm.expect(res).to.have.property('status').that.is.a('string');
+      });
+      pm.test('[Bisnis] Status adalah published', function () { pm.expect(res.status).to.equal('published'); });
+      pm.test('[Bisnis] Slug sesuai yang diminta', function () { pm.expect(res.slug).to.equal(pm.environment.get('created_post_slug')); });
+    language: text/javascript
+order: 2000

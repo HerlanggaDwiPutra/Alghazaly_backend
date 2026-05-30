@@ -1,0 +1,24 @@
+$kind: http-request
+name: "[+] GET /auth/me — Profil Superadmin"
+url: "{{base_url}}/auth/me"
+method: GET
+headers:
+  Authorization: Bearer {{token_superadmin}}
+  Accept: application/json
+scripts:
+  - type: afterResponse
+    code: |-
+      var res = pm.response.json();
+      pm.test('[HTTP] Status 200 OK', function () { pm.response.to.have.status(200); });
+      pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });
+      pm.test('[Schema] /auth/me mengembalikan user dengan role', function () {
+          pm.expect(res).to.have.property('id').that.is.a('number');
+          pm.expect(res).to.have.property('email').that.is.a('string');
+          pm.expect(res).to.have.property('role_id').that.is.a('number');
+          pm.expect(res).to.have.property('role').that.is.an('object');
+          pm.expect(res.role).to.have.property('name').that.is.a('string');
+      });
+      pm.test('[Bisnis] Email sesuai token superadmin', function () { pm.expect(res.email).to.equal(pm.environment.get('superadmin_email')); });
+      pm.test('[Bisnis] Role adalah superadmin', function () { pm.expect(res.role.name).to.equal('superadmin'); });
+    language: text/javascript
+order: 5000

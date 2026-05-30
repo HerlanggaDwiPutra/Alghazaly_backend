@@ -7,8 +7,26 @@ use App\Models\Alumni;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
+/**
+ * Mengelola data profil alumni sekolah untuk halaman galeri alumni.
+ *
+ * Data alumni merepresentasikan rekam jejak lulusan Al Ghazaly yang berprestasi.
+ * Field `is_published` mengontrol visibilitas profil di halaman publik;
+ * profil yang belum dipublikasikan hanya terlihat di panel admin.
+ *
+ * @see \App\Models\Alumni
+ */
 class AlumniController extends Controller
 {
+    /**
+     * Menampilkan daftar alumni dengan filter tahun kelulusan dan paginasi.
+     *
+     * Parameter `year` pada query string menyaring berdasarkan `graduation_year`.
+     * Daftar diurutkan dari tahun kelulusan terbaru ke terlama.
+     *
+     * @param  \Illuminate\Http\Request  $request  Query string filter (year).
+     * @return \Illuminate\Http\JsonResponse         Daftar alumni terpaginasi (15 per halaman).
+     */
     public function index(Request $request): JsonResponse
     {
         $alumni = Alumni::when($request->year, fn ($q) => $q->where('graduation_year', $request->year))
@@ -18,6 +36,14 @@ class AlumniController extends Controller
         return response()->json($alumni);
     }
 
+    /**
+     * Menambahkan profil alumni baru ke database.
+     *
+     * @param  \Illuminate\Http\Request  $request  Data profil alumni baru.
+     * @return \Illuminate\Http\JsonResponse         Data alumni yang baru dibuat (HTTP 201).
+     *
+     * @throws \Illuminate\Validation\ValidationException  Jika validasi input gagal.
+     */
     public function store(Request $request): JsonResponse
     {
         $request->validate([
@@ -33,6 +59,16 @@ class AlumniController extends Controller
         return response()->json(Alumni::create($request->only(['name', 'graduation_year', 'photo', 'current_institution', 'major', 'achievement', 'is_published'])), 201);
     }
 
+    /**
+     * Memperbarui data profil alumni secara parsial.
+     *
+     * @param  \Illuminate\Http\Request  $request  Field yang ingin diperbarui.
+     * @param  int                       $id       Primary key alumni (alumni_id).
+     * @return \Illuminate\Http\JsonResponse        Data alumni yang telah diperbarui.
+     *
+     * @throws \Illuminate\Validation\ValidationException            Jika validasi gagal.
+     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException  Jika alumni tidak ditemukan.
+     */
     public function update(Request $request, int $id): JsonResponse
     {
         $alumni = Alumni::findOrFail($id);
@@ -52,6 +88,14 @@ class AlumniController extends Controller
         return response()->json($alumni);
     }
 
+    /**
+     * Menghapus profil alumni secara permanen.
+     *
+     * File foto fisik alumni tidak ikut dihapus oleh operasi ini.
+     *
+     * @param  int  $id  Primary key alumni yang akan dihapus.
+     * @return \Illuminate\Http\JsonResponse  Konfirmasi penghapusan, atau 404 jika tidak ditemukan.
+     */
     public function destroy(int $id): JsonResponse
     {
         Alumni::findOrFail($id)->delete();

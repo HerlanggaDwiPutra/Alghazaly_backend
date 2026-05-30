@@ -1,0 +1,23 @@
+$kind: http-request
+name: "[+] GET /registrations/{{registration_number}}/status — Cek Status Baru"
+url: "{{base_url}}/registrations/{{registration_number}}/status"
+method: GET
+headers:
+  Accept: application/json
+scripts:
+  - type: afterResponse
+    code: |-
+      var res = pm.response.json();
+      pm.test('[HTTP] Status 200 OK', function () { pm.response.to.have.status(200); });
+      pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });
+      pm.test('[Schema] Cek status pendaftaran sesuai kontrak', function () {
+          pm.expect(res).to.have.property('registration_number').that.is.a('string');
+          pm.expect(res).to.have.property('full_name').that.is.a('string');
+          pm.expect(res).to.have.property('status').that.is.a('string');
+      });
+      pm.test('[Bisnis] Nomor pendaftaran sesuai', function () { pm.expect(res.registration_number).to.equal(pm.environment.get('registration_number')); });
+      pm.test('[Bisnis] Status adalah nilai enum yang valid', function () {
+          pm.expect(res.status).to.be.oneOf(['pending', 'verified', 'accepted', 'rejected']);
+      });
+    language: text/javascript
+order: 5000

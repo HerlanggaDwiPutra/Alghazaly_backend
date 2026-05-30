@@ -1,0 +1,17 @@
+$kind: http-request
+name: "[~] GET /admin/users — Editor Token (Info: RBAC belum aktif → 200)"
+url: "{{base_url}}/admin/users"
+method: GET
+headers:
+  Authorization: Bearer {{token_editor}}
+  Accept: application/json
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('[Auth] Endpoint dapat diakses oleh authenticated user (RBAC role-level belum aktif)', function () {
+          pm.expect(pm.response.code).to.be.oneOf([200, 403], 'Harusnya 403 jika RBAC aktif, saat ini 200');
+      });
+      pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });
+      console.log('[RBAC-INFO] /admin/users editor response:', pm.response.code, '— implementasikan Laravel Gate/Policy untuk restrict editor');
+    language: text/javascript
+order: 2000

@@ -1,0 +1,38 @@
+$kind: http-request
+name: "[+] GET /admin/dashboard — Statistik (Superadmin)"
+url: "{{base_url}}/admin/dashboard"
+method: GET
+headers:
+  Authorization: Bearer {{token_superadmin}}
+  Accept: application/json
+scripts:
+  - type: afterResponse
+    code: |-
+      var res = pm.response.json();
+      pm.test('[HTTP] Status 200 OK', function () { pm.response.to.have.status(200); });
+      pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });
+      pm.test('[Schema] /admin/dashboard sesuai kontrak', function () {
+          pm.expect(res).to.have.property('registrations').that.is.an('object');
+          pm.expect(res.registrations).to.have.property('total').that.is.a('number');
+          pm.expect(res.registrations).to.have.property('pending').that.is.a('number');
+          pm.expect(res.registrations).to.have.property('accepted').that.is.a('number');
+          pm.expect(res.registrations).to.have.property('rejected').that.is.a('number');
+          pm.expect(res).to.have.property('posts').that.is.a('number');
+          pm.expect(res).to.have.property('users').that.is.a('number');
+          pm.expect(res).to.have.property('unread_messages').that.is.a('number');
+          pm.expect(res).to.have.property('recent_registrations').that.is.an('array');
+      });
+      pm.test('[Bisnis] Semua counter registrasi adalah non-negatif', function () {
+          pm.expect(res.registrations.total).to.be.at.least(0);
+          pm.expect(res.registrations.pending).to.be.at.least(0);
+          pm.expect(res.registrations.accepted).to.be.at.least(0);
+          pm.expect(res.registrations.rejected).to.be.at.least(0);
+      });
+      pm.test('[Bisnis] PPDB total >= jumlah status (konsistensi data)', function () {
+          var total = res.registrations.total;
+          var sum = res.registrations.pending + res.registrations.accepted + res.registrations.rejected;
+          pm.expect(total).to.be.at.least(sum, 'total harus >= sum status (ada status lain seperti verified)');
+      });
+      pm.test('[Bisnis] PPDB memiliki minimal 2 data seeder', function () { pm.expect(res.registrations.total).to.be.at.least(2); });
+    language: text/javascript
+order: 1000

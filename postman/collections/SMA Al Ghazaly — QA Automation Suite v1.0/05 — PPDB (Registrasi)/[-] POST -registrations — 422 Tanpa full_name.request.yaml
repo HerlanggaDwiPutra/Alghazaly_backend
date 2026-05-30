@@ -1,0 +1,23 @@
+$kind: http-request
+name: "[-] POST /registrations — 422 Tanpa full_name"
+url: "{{base_url}}/registrations"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: text
+  content: '{"birth_date": "2010-01-01"}'
+scripts:
+  - type: afterResponse
+    code: |-
+      var res = pm.response.json();
+      pm.test('[HTTP] Status 422 Unprocessable', function () { pm.response.to.have.status(422); });
+      pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });
+      pm.test('[Schema] Struktur 422 sesuai kontrak', function () {
+          pm.expect(res).to.have.property('message');
+          pm.expect(res).to.have.property('errors');
+      });
+      pm.test('[422] errors.full_name ada', function () { pm.expect(res.errors).to.have.property('full_name'); });
+    language: text/javascript
+order: 6000

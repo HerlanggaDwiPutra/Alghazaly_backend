@@ -1,0 +1,27 @@
+$kind: http-request
+name: "[+] GET /admin/users — Daftar User (Superadmin)"
+url: "{{base_url}}/admin/users"
+method: GET
+headers:
+  Authorization: Bearer {{token_superadmin}}
+  Accept: application/json
+scripts:
+  - type: afterResponse
+    code: |-
+      var res = pm.response.json();
+      pm.test('[HTTP] Status 200 OK', function () { pm.response.to.have.status(200); });
+      pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });
+      pm.test('[Schema] /admin/users mengembalikan array user', function () {
+          pm.expect(res).to.be.an('array');
+          if (res.length > 0) {
+              pm.expect(res[0]).to.have.property('id');
+              pm.expect(res[0]).to.have.property('email');
+              pm.expect(res[0]).to.have.property('role_id');
+          }
+      });
+      pm.test('[Bisnis] Terdapat user superadmin', function () {
+          var emails = res.map(function(u) { return u.email; });
+          pm.expect(emails).to.include(pm.environment.get('superadmin_email'));
+      });
+    language: text/javascript
+order: 1000

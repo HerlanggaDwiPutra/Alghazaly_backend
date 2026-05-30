@@ -1,0 +1,30 @@
+$kind: http-request
+name: "[+] GET /posts — Public Paginated (Laravel Paginator)"
+url: "{{base_url}}/posts?page=1"
+method: GET
+headers:
+  Accept: application/json
+queryParams:
+  page: "1"
+scripts:
+  - type: afterResponse
+    code: |-
+      var res = pm.response.json();
+      pm.test('[HTTP] Status 200 OK', function () { pm.response.to.have.status(200); });
+      pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });
+      pm.test('[Schema] Struktur paginator Laravel sesuai kontrak', function () {
+          pm.expect(res).to.have.property('data').that.is.an('array');
+          pm.expect(res).to.have.property('current_page').that.is.a('number');
+          pm.expect(res).to.have.property('last_page').that.is.a('number');
+          pm.expect(res).to.have.property('per_page').that.is.a('number');
+          pm.expect(res).to.have.property('total').that.is.a('number');
+      });
+      pm.test('[Pagination] current_page = 1', function () { pm.expect(res.current_page).to.equal(1); });
+      pm.test('[Pagination] Jumlah item dalam data <= per_page', function () { pm.expect(res.data.length).to.be.at.most(res.per_page); });
+      pm.test('[Bisnis] total adalah angka non-negatif', function () { pm.expect(res.total).to.be.at.least(0); });
+      if (res.data && res.data.length > 0) {
+          pm.environment.set('created_post_slug', res.data[0].slug);
+          console.log('[ENV] created_post_slug=', res.data[0].slug);
+      }
+    language: text/javascript
+order: 1000

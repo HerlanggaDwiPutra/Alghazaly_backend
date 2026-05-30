@@ -1,0 +1,24 @@
+$kind: http-request
+name: "[+] PUT /admin/categories/{{created_category_id}} — Update (Editor)"
+url: "{{base_url}}/admin/categories/{{created_category_id}}"
+method: PUT
+headers:
+  Authorization: Bearer {{token_editor}}
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: text
+  content: '{"category_name": "QA Test Kategori Updated"}'
+scripts:
+  - type: afterResponse
+    code: |-
+      var res = pm.response.json();
+      pm.test('[HTTP] Status 200 OK', function () { pm.response.to.have.status(200); });
+      pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });
+      pm.test('[Schema] Response berisi data kategori yang diupdate', function () {
+          pm.expect(res).to.have.property('category_id').that.is.a('number');
+          pm.expect(res).to.have.property('category_name').that.is.a('string');
+      });
+      pm.test('[Bisnis] Nama kategori berhasil diupdate', function () { pm.expect(res.category_name).to.equal('QA Test Kategori Updated'); });
+    language: text/javascript
+order: 4000

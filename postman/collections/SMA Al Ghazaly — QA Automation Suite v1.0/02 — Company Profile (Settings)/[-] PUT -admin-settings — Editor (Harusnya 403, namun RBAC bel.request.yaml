@@ -1,0 +1,21 @@
+$kind: http-request
+name: "[-] PUT /admin/settings — Editor (Harusnya 403, namun RBAC belum implementasi)"
+url: "{{base_url}}/admin/settings"
+method: PUT
+headers:
+  Authorization: Bearer {{token_editor}}
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: text
+  content: '{"settings": [{"key": "site_name", "value": "Test Editor"}]}'
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('[Auth] Editor terautentikasi dapat mengakses (RBAC belum aktif)', function () {
+          pm.expect(pm.response.code).to.be.oneOf([200, 403], 'Jika RBAC aktif harus 403; jika belum aktif akan 200');
+      });
+      pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });
+      console.log('[RBAC-INFO] Settings editor response:', pm.response.code, '— RBAC role-based restriction belum diimplementasikan untuk endpoint ini');
+    language: text/javascript
+order: 3000

@@ -1,0 +1,15 @@
+$kind: http-request
+name: "[+] GET /forms/{slug} — Ambil Form Kontak"
+url: "{{base_url}}/forms/kontak"
+method: GET
+headers:
+  Accept: application/json
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('[HTTP] Status 200 OK atau 404 (form mungkin belum ada datanya)', function () {
+          pm.expect(pm.response.code).to.be.oneOf([200, 404]);
+      });
+      pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });
+    language: text/javascript
+order: 1000

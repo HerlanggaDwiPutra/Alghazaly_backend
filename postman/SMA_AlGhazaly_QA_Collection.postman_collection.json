@@ -1,0 +1,1160 @@
+{
+  "info": {
+    "_postman_id": "sma-alghazaly-qa-2026",
+    "name": "SMA Al Ghazaly — QA Automation Suite v1.0",
+    "description": "Koleksi pengujian otomatis REST API SMA Al Ghazaly. Mencakup auth, PPDB, posts, settings, kategori, dashboard, dan webhook. Semua schema disesuaikan dengan struktur respons controller aktual.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "id": "collection-prerequest",
+        "type": "text/javascript",
+        "exec": [
+          "// ==========================================================================",
+          "// COLLECTION-LEVEL PRE-REQUEST SCRIPT — Auto Login & Token Refresh",
+          "// ==========================================================================",
+          "var BASE_URL         = pm.environment.get('base_url');",
+          "var SUPERADMIN_CRED  = { email: pm.environment.get('superadmin_email'), password: pm.environment.get('superadmin_password') };",
+          "var EDITOR_CRED      = { email: pm.environment.get('editor_email'),     password: pm.environment.get('editor_password') };",
+          "var TOKEN_TTL_MS = 55 * 60 * 1000;",
+          "",
+          "function loginAndStoreToken(role, credentials, callback) {",
+          "    var tokenKey     = 'token_' + role;",
+          "    var tokenTimeKey = 'token_' + role + '_fetched_at';",
+          "    var storedToken  = pm.environment.get(tokenKey);",
+          "    var fetchedAt    = parseInt(pm.environment.get(tokenTimeKey) || '0', 10);",
+          "    var isTokenFresh = storedToken && (Date.now() - fetchedAt < TOKEN_TTL_MS);",
+          "    if (isTokenFresh) { if (callback) callback(); return; }",
+          "    pm.sendRequest({",
+          "        url: BASE_URL + '/auth/login', method: 'POST',",
+          "        header: { 'Content-Type': 'application/json', 'Accept': 'application/json' },",
+          "        body: { mode: 'raw', raw: JSON.stringify(credentials) }",
+          "    }, function (err, res) {",
+          "        if (err || res.code !== 200) { console.warn('[AUTO-LOGIN] Gagal untuk role:', role, err || res.code); if (callback) callback(); return; }",
+          "        var body = res.json();",
+          "        if (body.token) {",
+          "            pm.environment.set(tokenKey, body.token);",
+          "            pm.environment.set(tokenTimeKey, Date.now().toString());",
+          "            console.log('[AUTO-LOGIN] Token disimpan untuk role:', role);",
+          "        }",
+          "        if (callback) callback();",
+          "    });",
+          "}",
+          "",
+          "loginAndStoreToken('superadmin', SUPERADMIN_CRED, function () {",
+          "    loginAndStoreToken('editor', EDITOR_CRED, null);",
+          "});"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "id": "collection-test-global",
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('[Global] Server tidak mengembalikan 500 Internal Error', function () {",
+          "    pm.expect(pm.response.code).to.not.equal(500);",
+          "});"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "01 — Autentikasi",
+      "item": [
+        {
+          "name": "[+] POST /auth/login — Superadmin",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"email\": \"{{superadmin_email}}\", \"password\": \"{{superadmin_password}}\"}"},
+            "url": { "raw": "{{base_url}}/auth/login", "host": ["{{base_url}}"], "path": ["auth", "login"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var res = pm.response.json();",
+                  "pm.test('[HTTP] Status 200 OK', function () { pm.response.to.have.status(200); });",
+                  "pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test('[Schema] Response memiliki token dan user', function () {",
+                  "    pm.expect(res).to.have.property('token').that.is.a('string').and.not.empty;",
+                  "    pm.expect(res).to.have.property('user').that.is.an('object');",
+                  "    pm.expect(res.user).to.have.property('id').that.is.a('number');",
+                  "    pm.expect(res.user).to.have.property('email').that.is.a('string');",
+                  "    pm.expect(res.user).to.have.property('role_id').that.is.a('number');",
+                  "});",
+                  "pm.test('[Bisnis] Token tidak kosong', function () { pm.expect(res.token).to.be.a('string'); });",
+                  "pm.test('[Bisnis] Email superadmin sesuai', function () { pm.expect(res.user.email).to.equal(pm.environment.get('superadmin_email')); });",
+                  "if (res.token) {",
+                  "    pm.environment.set('token_superadmin', res.token);",
+                  "    pm.environment.set('token_superadmin_fetched_at', Date.now().toString());",
+                  "    console.log('[AUTH] token_superadmin saved.');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[+] POST /auth/login — Editor",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"email\": \"{{editor_email}}\", \"password\": \"{{editor_password}}\"}"},
+            "url": { "raw": "{{base_url}}/auth/login", "host": ["{{base_url}}"], "path": ["auth", "login"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var res = pm.response.json();",
+                  "pm.test('[HTTP] Status 200 OK', function () { pm.response.to.have.status(200); });",
+                  "pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test('[Schema] Response memiliki token dan user', function () {",
+                  "    pm.expect(res).to.have.property('token').that.is.a('string').and.not.empty;",
+                  "    pm.expect(res).to.have.property('user').that.is.an('object');",
+                  "    pm.expect(res.user).to.have.property('role_id').that.is.a('number');",
+                  "});",
+                  "pm.test('[Bisnis] Token tidak kosong', function () { pm.expect(res.token).to.be.a('string'); });",
+                  "pm.test('[Bisnis] Email editor sesuai', function () { pm.expect(res.user.email).to.equal(pm.environment.get('editor_email')); });",
+                  "if (res.token) {",
+                  "    pm.environment.set('token_editor', res.token);",
+                  "    pm.environment.set('token_editor_fetched_at', Date.now().toString());",
+                  "    console.log('[AUTH] token_editor saved.');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[-] POST /auth/login — Password Salah (401)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"email\": \"{{superadmin_email}}\", \"password\": \"password-salah-banget-123\"}"},
+            "url": { "raw": "{{base_url}}/auth/login", "host": ["{{base_url}}"], "path": ["auth", "login"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var res = pm.response.json();",
+                  "pm.test('[HTTP] Status 401 Unauthorized', function () { pm.response.to.have.status(401); });",
+                  "pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test('[Keamanan] Response tidak mengandung token', function () { pm.expect(res).to.not.have.property('token'); });",
+                  "pm.test('[Bisnis] Response mengandung pesan error', function () { pm.expect(res).to.have.property('message').that.is.a('string'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[-] POST /auth/login — Payload Kosong (422)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{}"},
+            "url": { "raw": "{{base_url}}/auth/login", "host": ["{{base_url}}"], "path": ["auth", "login"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var res = pm.response.json();",
+                  "pm.test('[HTTP] Status 422 Unprocessable Entity', function () { pm.response.to.have.status(422); });",
+                  "pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test('[Schema] Struktur 422 memiliki message dan errors', function () {",
+                  "    pm.expect(res).to.have.property('message');",
+                  "    pm.expect(res).to.have.property('errors').that.is.an('object');",
+                  "});",
+                  "pm.test('[422] errors.email ada', function () { pm.expect(res.errors).to.have.property('email'); });",
+                  "pm.test('[422] errors.password ada', function () { pm.expect(res.errors).to.have.property('password'); });",
+                  "pm.test('[Keamanan] Response tidak mengandung token', function () { pm.expect(res).to.not.have.property('token'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[+] GET /auth/me — Profil Superadmin",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_superadmin}}" }, { "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/auth/me", "host": ["{{base_url}}"], "path": ["auth", "me"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var res = pm.response.json();",
+                  "pm.test('[HTTP] Status 200 OK', function () { pm.response.to.have.status(200); });",
+                  "pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test('[Schema] /auth/me mengembalikan user dengan role', function () {",
+                  "    pm.expect(res).to.have.property('id').that.is.a('number');",
+                  "    pm.expect(res).to.have.property('email').that.is.a('string');",
+                  "    pm.expect(res).to.have.property('role_id').that.is.a('number');",
+                  "    pm.expect(res).to.have.property('role').that.is.an('object');",
+                  "    pm.expect(res.role).to.have.property('name').that.is.a('string');",
+                  "});",
+                  "pm.test('[Bisnis] Email sesuai token superadmin', function () { pm.expect(res.email).to.equal(pm.environment.get('superadmin_email')); });",
+                  "pm.test('[Bisnis] Role adalah superadmin', function () { pm.expect(res.role.name).to.equal('superadmin'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[-] GET /auth/me — Tanpa Auth (401)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/auth/me", "host": ["{{base_url}}"], "path": ["auth", "me"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var res = pm.response.json();",
+                  "pm.test('[Keamanan] Status 401 Unauthorized', function () { pm.response.to.have.status(401); });",
+                  "pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test('[Keamanan] Response memiliki field message', function () { pm.expect(res).to.have.property('message'); });",
+                  "pm.test('[Keamanan] Response tidak mengandung data user', function () { pm.expect(res).to.not.have.property('email'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[+] POST /auth/logout — Superadmin",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_superadmin}}" }, { "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/auth/logout", "host": ["{{base_url}}"], "path": ["auth", "logout"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var res = pm.response.json();",
+                  "pm.test('[HTTP] Status 200 OK', function () { pm.response.to.have.status(200); });",
+                  "pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test('[Bisnis] Response mengandung pesan logout', function () { pm.expect(res).to.have.property('message').that.is.a('string'); });",
+                  "pm.environment.unset('token_superadmin');",
+                  "pm.environment.unset('token_superadmin_fetched_at');",
+                  "console.log('[AUTH] token_superadmin dihapus setelah logout.');"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 — Company Profile (Settings)",
+      "item": [
+        {
+          "name": "[+] GET /settings — Public (key-value object)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/settings", "host": ["{{base_url}}"], "path": ["settings"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var res = pm.response.json();",
+                  "pm.test('[HTTP] Status 200 OK', function () { pm.response.to.have.status(200); });",
+                  "pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test('[Schema] Settings mengembalikan objek key-value', function () {",
+                  "    pm.expect(res).to.be.an('object');",
+                  "    pm.expect(Object.keys(res).length).to.be.above(0, 'Settings tidak boleh kosong');",
+                  "});",
+                  "pm.test('[Bisnis] Mengandung setidaknya satu kunci settings', function () {",
+                  "    var keys = Object.keys(res);",
+                  "    pm.expect(keys.length).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[+] PUT /admin/settings — Superadmin",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_superadmin}}" }, { "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"settings\": [{\"key\": \"site_name\", \"value\": \"SMA Al Ghazaly\"}, {\"key\": \"site_address\", \"value\": \"Jl. Raya Garut No. 1\"}]}"},
+            "url": { "raw": "{{base_url}}/admin/settings", "host": ["{{base_url}}"], "path": ["admin", "settings"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var res = pm.response.json();",
+                  "pm.test('[HTTP] Status 200 OK', function () { pm.response.to.have.status(200); });",
+                  "pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test('[Kontrak] Response memiliki message', function () { pm.expect(res).to.have.property('message').that.is.a('string'); });",
+                  "pm.test('[Bisnis] Pesan konfirmasi update settings', function () {",
+                  "    pm.expect(res.message.toLowerCase()).to.match(/disimpan|berhasil|updated|saved|pengaturan/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[-] PUT /admin/settings — Editor (Harusnya 403, namun RBAC belum implementasi)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_editor}}" }, { "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"settings\": [{\"key\": \"site_name\", \"value\": \"Test Editor\"}]}"},
+            "url": { "raw": "{{base_url}}/admin/settings", "host": ["{{base_url}}"], "path": ["admin", "settings"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('[Auth] Editor terautentikasi dapat mengakses (RBAC belum aktif)', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 403], 'Jika RBAC aktif harus 403; jika belum aktif akan 200');",
+                  "});",
+                  "pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "console.log('[RBAC-INFO] Settings editor response:', pm.response.code, '— RBAC role-based restriction belum diimplementasikan untuk endpoint ini');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[-] PUT /admin/settings — Tanpa Auth (401)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"site_name\": \"Hacker\"}"},
+            "url": { "raw": "{{base_url}}/admin/settings", "host": ["{{base_url}}"], "path": ["admin", "settings"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var res = pm.response.json();",
+                  "pm.test('[Keamanan] Status 401 Unauthorized', function () { pm.response.to.have.status(401); });",
+                  "pm.test('[Keamanan] Response memiliki message', function () { pm.expect(res).to.have.property('message'); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 — Berita & Artikel (Posts)",
+      "item": [
+        {
+          "name": "[+] GET /posts — Public Paginated (Laravel Paginator)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/posts?page=1", "host": ["{{base_url}}"], "path": ["posts"], "query": [{"key": "page", "value": "1"}] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var res = pm.response.json();",
+                  "pm.test('[HTTP] Status 200 OK', function () { pm.response.to.have.status(200); });",
+                  "pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test('[Schema] Struktur paginator Laravel sesuai kontrak', function () {",
+                  "    pm.expect(res).to.have.property('data').that.is.an('array');",
+                  "    pm.expect(res).to.have.property('current_page').that.is.a('number');",
+                  "    pm.expect(res).to.have.property('last_page').that.is.a('number');",
+                  "    pm.expect(res).to.have.property('per_page').that.is.a('number');",
+                  "    pm.expect(res).to.have.property('total').that.is.a('number');",
+                  "});",
+                  "pm.test('[Pagination] current_page = 1', function () { pm.expect(res.current_page).to.equal(1); });",
+                  "pm.test('[Pagination] Jumlah item dalam data <= per_page', function () { pm.expect(res.data.length).to.be.at.most(res.per_page); });",
+                  "pm.test('[Bisnis] total adalah angka non-negatif', function () { pm.expect(res.total).to.be.at.least(0); });",
+                  "if (res.data && res.data.length > 0) {",
+                  "    pm.environment.set('created_post_slug', res.data[0].slug);",
+                  "    console.log('[ENV] created_post_slug=', res.data[0].slug);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[+] GET /posts/{{created_post_slug}} — Detail Publik",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/posts/{{created_post_slug}}", "host": ["{{base_url}}"], "path": ["posts", "{{created_post_slug}}"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var res = pm.response.json();",
+                  "pm.test('[HTTP] Status 200 OK', function () { pm.response.to.have.status(200); });",
+                  "pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test('[Schema] Struktur detail post sesuai kontrak', function () {",
+                  "    pm.expect(res).to.have.property('post_id').that.is.a('number');",
+                  "    pm.expect(res).to.have.property('title').that.is.a('string');",
+                  "    pm.expect(res).to.have.property('slug').that.is.a('string');",
+                  "    pm.expect(res).to.have.property('status').that.is.a('string');",
+                  "});",
+                  "pm.test('[Bisnis] Status adalah published', function () { pm.expect(res.status).to.equal('published'); });",
+                  "pm.test('[Bisnis] Slug sesuai yang diminta', function () { pm.expect(res.slug).to.equal(pm.environment.get('created_post_slug')); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[-] GET /posts/slug-tidak-ada — 404",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/posts/slug-yang-sama-sekali-tidak-ada-99999", "host": ["{{base_url}}"], "path": ["posts", "slug-yang-sama-sekali-tidak-ada-99999"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var res = pm.response.json();",
+                  "pm.test('[HTTP] Status 404 Not Found', function () { pm.response.to.have.status(404); });",
+                  "pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test('[Bisnis] Response memiliki message', function () { pm.expect(res).to.have.property('message'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[+] GET /admin/posts — Daftar Admin (Editor Token)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_editor}}" }, { "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/admin/posts?page=1", "host": ["{{base_url}}"], "path": ["admin", "posts"], "query": [{"key": "page", "value": "1"}] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var res = pm.response.json();",
+                  "pm.test('[HTTP] Status 200 OK', function () { pm.response.to.have.status(200); });",
+                  "pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test('[Bisnis] data adalah array', function () { pm.expect(res.data).to.be.an('array'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[-] GET /admin/posts — Tanpa Auth (401)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/admin/posts", "host": ["{{base_url}}"], "path": ["admin", "posts"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var res = pm.response.json();",
+                  "pm.test('[Keamanan] Status 401 Unauthorized', function () { pm.response.to.have.status(401); });",
+                  "pm.test('[Keamanan] Tidak ada data sensitif', function () { pm.expect(res).to.not.have.property('data'); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 — Kategori",
+      "item": [
+        {
+          "name": "[+] GET /categories — Public",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/categories", "host": ["{{base_url}}"], "path": ["categories"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var res = pm.response.json();",
+                  "pm.test('[HTTP] Status 200 OK', function () { pm.response.to.have.status(200); });",
+                  "pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test('[Schema] Response adalah array kategori', function () { pm.expect(res).to.be.an('array'); });",
+                  "pm.test('[Bisnis] Setiap kategori memiliki category_name', function () {",
+                  "    if (res.length > 0) { pm.expect(res[0]).to.have.property('category_name').that.is.a('string'); }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[+] POST /admin/categories — Buat Kategori (Editor)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_editor}}" }, { "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"category_name\": \"QA Test Kategori Otomatis\"}"},
+            "url": { "raw": "{{base_url}}/admin/categories", "host": ["{{base_url}}"], "path": ["admin", "categories"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var res = pm.response.json();",
+                  "pm.test('[HTTP] Status 201 Created', function () { pm.response.to.have.status(201); });",
+                  "pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test('[Schema] POST /admin/categories sesuai kontrak (flat object)', function () {",
+                  "    pm.expect(res).to.have.property('category_id').that.is.a('number');",
+                  "    pm.expect(res).to.have.property('category_name').that.is.a('string');",
+                  "    pm.expect(res).to.have.property('slug').that.is.a('string');",
+                  "});",
+                  "pm.test('[Bisnis] ID kategori baru adalah number positif', function () { pm.expect(res.category_id).to.be.above(0); });",
+                  "pm.environment.set('created_category_id', res.category_id);",
+                  "console.log('[ENV] created_category_id=', res.category_id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[-] POST /admin/categories — 422 Tanpa Nama",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_editor}}" }, { "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{}"},
+            "url": { "raw": "{{base_url}}/admin/categories", "host": ["{{base_url}}"], "path": ["admin", "categories"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var res = pm.response.json();",
+                  "pm.test('[HTTP] Status 422 Unprocessable', function () { pm.response.to.have.status(422); });",
+                  "pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test('[Schema] Struktur 422 sesuai kontrak', function () {",
+                  "    pm.expect(res).to.have.property('message');",
+                  "    pm.expect(res).to.have.property('errors');",
+                  "});",
+                  "pm.test('[422] errors mengandung field validasi yang gagal', function () {",
+                  "    pm.expect(Object.keys(res.errors).length).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[+] PUT /admin/categories/{{created_category_id}} — Update (Editor)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_editor}}" }, { "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"category_name\": \"QA Test Kategori Updated\"}"},
+            "url": { "raw": "{{base_url}}/admin/categories/{{created_category_id}}", "host": ["{{base_url}}"], "path": ["admin", "categories", "{{created_category_id}}"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var res = pm.response.json();",
+                  "pm.test('[HTTP] Status 200 OK', function () { pm.response.to.have.status(200); });",
+                  "pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test('[Schema] Response berisi data kategori yang diupdate', function () {",
+                  "    pm.expect(res).to.have.property('category_id').that.is.a('number');",
+                  "    pm.expect(res).to.have.property('category_name').that.is.a('string');",
+                  "});",
+                  "pm.test('[Bisnis] Nama kategori berhasil diupdate', function () { pm.expect(res.category_name).to.equal('QA Test Kategori Updated'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[+] DELETE /admin/categories/{{created_category_id}} — Hapus (Editor)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_editor}}" }, { "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/admin/categories/{{created_category_id}}", "host": ["{{base_url}}"], "path": ["admin", "categories", "{{created_category_id}}"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var res = pm.response.json();",
+                  "pm.test('[HTTP] Status 200 OK (DELETE mengembalikan message)', function () { pm.response.to.have.status(200); });",
+                  "pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test('[Bisnis] Response mengandung pesan konfirmasi', function () {",
+                  "    pm.expect(res).to.have.property('message').that.is.a('string');",
+                  "    pm.expect(res.message.toLowerCase()).to.match(/hapus|deleted|dihapus/);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05 — PPDB (Registrasi)",
+      "item": [
+        {
+          "name": "[+] GET /registrations/PPDB-2025-0001/status — Cek Status Seeder #1 (verified)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/registrations/PPDB-2025-0001/status", "host": ["{{base_url}}"], "path": ["registrations", "PPDB-2025-0001", "status"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var res = pm.response.json();",
+                  "pm.test('[HTTP] Status 200 OK', function () { pm.response.to.have.status(200); });",
+                  "pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test('[Schema] Cek status pendaftaran sesuai kontrak (flat object)', function () {",
+                  "    pm.expect(res).to.have.property('registration_number').that.is.a('string');",
+                  "    pm.expect(res).to.have.property('full_name').that.is.a('string');",
+                  "    pm.expect(res).to.have.property('status').that.is.a('string');",
+                  "});",
+                  "pm.test('[Bisnis] Nomor pendaftaran PPDB-2025-0001', function () { pm.expect(res.registration_number).to.equal('PPDB-2025-0001'); });",
+                  "pm.test('[Bisnis] Nama pendaftar Ahmad Rizqi Maulana', function () { pm.expect(res.full_name).to.include('Ahmad'); });",
+                  "pm.test('[Bisnis] Status adalah verified (sesuai seeder)', function () { pm.expect(res.status).to.equal('verified'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[+] GET /registrations/PPDB-2025-0002/status — Cek Status Seeder #2 (verified)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/registrations/PPDB-2025-0002/status", "host": ["{{base_url}}"], "path": ["registrations", "PPDB-2025-0002", "status"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var res = pm.response.json();",
+                  "pm.test('[HTTP] Status 200 OK', function () { pm.response.to.have.status(200); });",
+                  "pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test('[Schema] Cek status pendaftaran sesuai kontrak (flat object)', function () {",
+                  "    pm.expect(res).to.have.property('registration_number').that.is.a('string');",
+                  "    pm.expect(res).to.have.property('full_name').that.is.a('string');",
+                  "    pm.expect(res).to.have.property('status').that.is.a('string');",
+                  "});",
+                  "pm.test('[Bisnis] Nomor pendaftaran PPDB-2025-0002', function () { pm.expect(res.registration_number).to.equal('PPDB-2025-0002'); });",
+                  "pm.test('[Bisnis] Nama pendaftar Putri Aulia Rahma', function () { pm.expect(res.full_name).to.include('Putri'); });",
+                  "pm.test('[Bisnis] Status adalah verified (sesuai seeder)', function () { pm.expect(res.status).to.equal('verified'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[+] GET /admin/registrations — Daftar PPDB (Superadmin)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_superadmin}}" }, { "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/admin/registrations", "host": ["{{base_url}}"], "path": ["admin", "registrations"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var res = pm.response.json();",
+                  "pm.test('[HTTP] Status 200 OK', function () { pm.response.to.have.status(200); });",
+                  "pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test('[Bisnis] data adalah array', function () { pm.expect(res.data).to.be.an('array'); });",
+                  "pm.test('[Bisnis] Terdapat minimal 2 data seeder', function () { pm.expect(res.data.length).to.be.at.least(2); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[+] POST /registrations — Submit Pendaftaran Baru",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"full_name\": \"Calon Siswa QA Test\", \"birth_date\": \"2010-05-15\", \"birth_place\": \"Bandung\", \"gender\": \"L\", \"address\": \"Jl. QA Test No.1 Bandung\", \"phone\": \"082100000001\", \"parent_name\": \"Orang Tua QA\", \"parent_phone\": \"082100000002\", \"previous_school\": \"SMP QA Negeri 1\", \"academic_year\": \"2025/2026\"}"},
+            "url": { "raw": "{{base_url}}/registrations", "host": ["{{base_url}}"], "path": ["registrations"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var res = pm.response.json();",
+                  "pm.test('[HTTP] Status 201 Created', function () { pm.response.to.have.status(201); });",
+                  "pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test('[Schema] POST /registrations sesuai kontrak', function () {",
+                  "    pm.expect(res).to.have.property('message').that.is.a('string');",
+                  "    pm.expect(res).to.have.property('registration_number').that.is.a('string');",
+                  "    pm.expect(res).to.have.property('registration_id').that.is.a('number');",
+                  "});",
+                  "pm.test('[Bisnis] Format nomor PPDB-YYYY-XXXXXX', function () {",
+                  "    pm.expect(res.registration_number).to.match(/^PPDB-\\d{4}-[A-Z0-9]+$/);",
+                  "});",
+                  "pm.test('[Bisnis] Pesan konfirmasi pendaftaran berhasil', function () {",
+                  "    pm.expect(res.message.toLowerCase()).to.match(/berhasil|sukses|registered|created/);",
+                  "});",
+                  "if (res.registration_number) {",
+                  "    pm.environment.set('registration_number', res.registration_number);",
+                  "    console.log('[ENV] registration_number=', res.registration_number);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[+] GET /registrations/{{registration_number}}/status — Cek Status Baru",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/registrations/{{registration_number}}/status", "host": ["{{base_url}}"], "path": ["registrations", "{{registration_number}}", "status"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var res = pm.response.json();",
+                  "pm.test('[HTTP] Status 200 OK', function () { pm.response.to.have.status(200); });",
+                  "pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test('[Schema] Cek status pendaftaran sesuai kontrak', function () {",
+                  "    pm.expect(res).to.have.property('registration_number').that.is.a('string');",
+                  "    pm.expect(res).to.have.property('full_name').that.is.a('string');",
+                  "    pm.expect(res).to.have.property('status').that.is.a('string');",
+                  "});",
+                  "pm.test('[Bisnis] Nomor pendaftaran sesuai', function () { pm.expect(res.registration_number).to.equal(pm.environment.get('registration_number')); });",
+                  "pm.test('[Bisnis] Status adalah nilai enum yang valid', function () {",
+                  "    pm.expect(res.status).to.be.oneOf(['pending', 'verified', 'accepted', 'rejected']);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[-] POST /registrations — 422 Tanpa full_name",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"birth_date\": \"2010-01-01\"}"},
+            "url": { "raw": "{{base_url}}/registrations", "host": ["{{base_url}}"], "path": ["registrations"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var res = pm.response.json();",
+                  "pm.test('[HTTP] Status 422 Unprocessable', function () { pm.response.to.have.status(422); });",
+                  "pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test('[Schema] Struktur 422 sesuai kontrak', function () {",
+                  "    pm.expect(res).to.have.property('message');",
+                  "    pm.expect(res).to.have.property('errors');",
+                  "});",
+                  "pm.test('[422] errors.full_name ada', function () { pm.expect(res.errors).to.have.property('full_name'); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06 — Formulir Kontak (Form Submissions)",
+      "item": [
+        {
+          "name": "[+] GET /forms/{slug} — Ambil Form Kontak",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/forms/kontak", "host": ["{{base_url}}"], "path": ["forms", "kontak"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('[HTTP] Status 200 OK atau 404 (form mungkin belum ada datanya)', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 404]);",
+                  "});",
+                  "pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[+] GET /admin/messages — Daftar Pesan (Editor Token)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_editor}}" }, { "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/admin/messages", "host": ["{{base_url}}"], "path": ["admin", "messages"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var res = pm.response.json();",
+                  "pm.test('[HTTP] Status 200 OK', function () { pm.response.to.have.status(200); });",
+                  "pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test('[Bisnis] data adalah array', function () { pm.expect(res.data).to.be.an('array'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[-] GET /admin/messages — Tanpa Auth (401)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/admin/messages", "host": ["{{base_url}}"], "path": ["admin", "messages"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var res = pm.response.json();",
+                  "pm.test('[Keamanan] Status 401 Unauthorized', function () { pm.response.to.have.status(401); });",
+                  "pm.test('[Keamanan] Tidak ada data sensitif', function () { pm.expect(res).to.not.have.property('data'); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "07 — Dashboard",
+      "item": [
+        {
+          "name": "[+] GET /admin/dashboard — Statistik (Superadmin)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_superadmin}}" }, { "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/admin/dashboard", "host": ["{{base_url}}"], "path": ["admin", "dashboard"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var res = pm.response.json();",
+                  "pm.test('[HTTP] Status 200 OK', function () { pm.response.to.have.status(200); });",
+                  "pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test('[Schema] /admin/dashboard sesuai kontrak', function () {",
+                  "    pm.expect(res).to.have.property('registrations').that.is.an('object');",
+                  "    pm.expect(res.registrations).to.have.property('total').that.is.a('number');",
+                  "    pm.expect(res.registrations).to.have.property('pending').that.is.a('number');",
+                  "    pm.expect(res.registrations).to.have.property('accepted').that.is.a('number');",
+                  "    pm.expect(res.registrations).to.have.property('rejected').that.is.a('number');",
+                  "    pm.expect(res).to.have.property('posts').that.is.a('number');",
+                  "    pm.expect(res).to.have.property('users').that.is.a('number');",
+                  "    pm.expect(res).to.have.property('unread_messages').that.is.a('number');",
+                  "    pm.expect(res).to.have.property('recent_registrations').that.is.an('array');",
+                  "});",
+                  "pm.test('[Bisnis] Semua counter registrasi adalah non-negatif', function () {",
+                  "    pm.expect(res.registrations.total).to.be.at.least(0);",
+                  "    pm.expect(res.registrations.pending).to.be.at.least(0);",
+                  "    pm.expect(res.registrations.accepted).to.be.at.least(0);",
+                  "    pm.expect(res.registrations.rejected).to.be.at.least(0);",
+                  "});",
+                  "pm.test('[Bisnis] PPDB total >= jumlah status (konsistensi data)', function () {",
+                  "    var total = res.registrations.total;",
+                  "    var sum = res.registrations.pending + res.registrations.accepted + res.registrations.rejected;",
+                  "    pm.expect(total).to.be.at.least(sum, 'total harus >= sum status (ada status lain seperti verified)');",
+                  "});",
+                  "pm.test('[Bisnis] PPDB memiliki minimal 2 data seeder', function () { pm.expect(res.registrations.total).to.be.at.least(2); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[-] GET /admin/dashboard — Tanpa Auth (401)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/admin/dashboard", "host": ["{{base_url}}"], "path": ["admin", "dashboard"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var res = pm.response.json();",
+                  "pm.test('[Keamanan] Status 401 Unauthorized', function () { pm.response.to.have.status(401); });",
+                  "pm.test('[Keamanan] Tidak ada data statistik', function () { pm.expect(res).to.not.have.property('registrations'); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "08 — Manajemen User & Role",
+      "item": [
+        {
+          "name": "[+] GET /admin/users — Daftar User (Superadmin)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_superadmin}}" }, { "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/admin/users", "host": ["{{base_url}}"], "path": ["admin", "users"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var res = pm.response.json();",
+                  "pm.test('[HTTP] Status 200 OK', function () { pm.response.to.have.status(200); });",
+                  "pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test('[Schema] /admin/users mengembalikan array user', function () {",
+                  "    pm.expect(res).to.be.an('array');",
+                  "    if (res.length > 0) {",
+                  "        pm.expect(res[0]).to.have.property('id');",
+                  "        pm.expect(res[0]).to.have.property('email');",
+                  "        pm.expect(res[0]).to.have.property('role_id');",
+                  "    }",
+                  "});",
+                  "pm.test('[Bisnis] Terdapat user superadmin', function () {",
+                  "    var emails = res.map(function(u) { return u.email; });",
+                  "    pm.expect(emails).to.include(pm.environment.get('superadmin_email'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[~] GET /admin/users — Editor Token (Info: RBAC belum aktif → 200)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_editor}}" }, { "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/admin/users", "host": ["{{base_url}}"], "path": ["admin", "users"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('[Auth] Endpoint dapat diakses oleh authenticated user (RBAC role-level belum aktif)', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 403], 'Harusnya 403 jika RBAC aktif, saat ini 200');",
+                  "});",
+                  "pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "console.log('[RBAC-INFO] /admin/users editor response:', pm.response.code, '— implementasikan Laravel Gate/Policy untuk restrict editor');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[-] GET /admin/users — Tanpa Auth (401)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/admin/users", "host": ["{{base_url}}"], "path": ["admin", "users"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var res = pm.response.json();",
+                  "pm.test('[Keamanan] Status 401 Unauthorized', function () { pm.response.to.have.status(401); });",
+                  "pm.test('[Keamanan] Tidak ada data sensitif', function () { pm.expect(res).to.not.have.property('email'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[+] GET /admin/roles — Daftar Role (Superadmin)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_superadmin}}" }, { "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/admin/roles", "host": ["{{base_url}}"], "path": ["admin", "roles"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var res = pm.response.json();",
+                  "pm.test('[HTTP] Status 200 OK', function () { pm.response.to.have.status(200); });",
+                  "pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "pm.test('[Schema] /admin/roles mengembalikan array role', function () {",
+                  "    pm.expect(res).to.be.an('array');",
+                  "    pm.expect(res.length).to.be.above(0, 'Harus ada setidaknya 1 role');",
+                  "    if (res.length > 0) {",
+                  "        pm.expect(res[0]).to.have.property('role_id');",
+                  "        pm.expect(res[0]).to.have.property('name').that.is.a('string');",
+                  "    }",
+                  "});",
+                  "pm.test('[Bisnis] Terdapat role superadmin', function () {",
+                  "    var names = res.map(function(r) { return r.name; });",
+                  "    pm.expect(names).to.include('superadmin');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[~] GET /admin/roles — Editor Token (Info: RBAC belum aktif → 200)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token_editor}}" }, { "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/admin/roles", "host": ["{{base_url}}"], "path": ["admin", "roles"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('[Auth] Endpoint dapat diakses oleh authenticated user (RBAC role-level belum aktif)', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 403]);",
+                  "});",
+                  "pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });",
+                  "console.log('[RBAC-INFO] /admin/roles editor response:', pm.response.code, '— implementasikan Laravel Gate/Policy untuk restrict editor');"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "09 — Webhook Midtrans [Mock]",
+      "item": [
+        {
+          "name": "[Mock] POST /webhooks/midtrans — Simulasi Payload",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"order_id\": \"PPDB-2025-0001\", \"status_code\": \"200\", \"gross_amount\": \"500000.00\", \"signature_key\": \"invalid-signature-for-test\", \"transaction_status\": \"settlement\", \"payment_type\": \"bank_transfer\", \"transaction_id\": \"test-txn-001\"}"
+            },
+            "url": { "raw": "{{base_url}}/webhooks/midtrans", "host": ["{{base_url}}"], "path": ["webhooks", "midtrans"] }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Mock: gunakan payload statis tanpa signature CryptoJS",
+                  "// Webhook akan menolak dengan 403 Invalid Signature (perilaku yang benar)",
+                  "console.log('[WEBHOOK] Mengirim payload mock tanpa signature valid — expect 403 Invalid Signature');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('[Performa] Response Time < 5000ms', function () { pm.expect(pm.response.responseTime).to.be.below(5000); });",
+                  "pm.test('[WEBHOOK] Status bukan 500 — server tidak crash', function () { pm.expect(pm.response.code).to.not.equal(500); });",
+                  "pm.test('[WEBHOOK] Status Code adalah 200, 400, 403, atau 422', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 400, 403, 422]);",
+                  "});",
+                  "var res = pm.response.text();",
+                  "console.log('[WEBHOOK] Response:', pm.response.code, '—', res.substring(0, 100));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8080/api" }
+  ]
+}

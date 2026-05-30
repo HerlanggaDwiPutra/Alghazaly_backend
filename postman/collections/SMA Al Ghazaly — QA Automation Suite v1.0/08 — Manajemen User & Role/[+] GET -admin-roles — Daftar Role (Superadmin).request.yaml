@@ -1,0 +1,27 @@
+$kind: http-request
+name: "[+] GET /admin/roles — Daftar Role (Superadmin)"
+url: "{{base_url}}/admin/roles"
+method: GET
+headers:
+  Authorization: Bearer {{token_superadmin}}
+  Accept: application/json
+scripts:
+  - type: afterResponse
+    code: |-
+      var res = pm.response.json();
+      pm.test('[HTTP] Status 200 OK', function () { pm.response.to.have.status(200); });
+      pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });
+      pm.test('[Schema] /admin/roles mengembalikan array role', function () {
+          pm.expect(res).to.be.an('array');
+          pm.expect(res.length).to.be.above(0, 'Harus ada setidaknya 1 role');
+          if (res.length > 0) {
+              pm.expect(res[0]).to.have.property('role_id');
+              pm.expect(res[0]).to.have.property('name').that.is.a('string');
+          }
+      });
+      pm.test('[Bisnis] Terdapat role superadmin', function () {
+          var names = res.map(function(r) { return r.name; });
+          pm.expect(names).to.include('superadmin');
+      });
+    language: text/javascript
+order: 4000

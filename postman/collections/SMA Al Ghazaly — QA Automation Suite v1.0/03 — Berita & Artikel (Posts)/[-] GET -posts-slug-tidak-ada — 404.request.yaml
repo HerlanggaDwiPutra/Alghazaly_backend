@@ -1,0 +1,15 @@
+$kind: http-request
+name: "[-] GET /posts/slug-tidak-ada — 404"
+url: "{{base_url}}/posts/slug-yang-sama-sekali-tidak-ada-99999"
+method: GET
+headers:
+  Accept: application/json
+scripts:
+  - type: afterResponse
+    code: |-
+      var res = pm.response.json();
+      pm.test('[HTTP] Status 404 Not Found', function () { pm.response.to.have.status(404); });
+      pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });
+      pm.test('[Bisnis] Response memiliki message', function () { pm.expect(res).to.have.property('message'); });
+    language: text/javascript
+order: 3000

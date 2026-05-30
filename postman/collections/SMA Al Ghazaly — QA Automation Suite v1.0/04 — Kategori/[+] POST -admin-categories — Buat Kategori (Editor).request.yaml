@@ -1,0 +1,27 @@
+$kind: http-request
+name: "[+] POST /admin/categories — Buat Kategori (Editor)"
+url: "{{base_url}}/admin/categories"
+method: POST
+headers:
+  Authorization: Bearer {{token_editor}}
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: text
+  content: '{"category_name": "QA Test Kategori Otomatis"}'
+scripts:
+  - type: afterResponse
+    code: |-
+      var res = pm.response.json();
+      pm.test('[HTTP] Status 201 Created', function () { pm.response.to.have.status(201); });
+      pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });
+      pm.test('[Schema] POST /admin/categories sesuai kontrak (flat object)', function () {
+          pm.expect(res).to.have.property('category_id').that.is.a('number');
+          pm.expect(res).to.have.property('category_name').that.is.a('string');
+          pm.expect(res).to.have.property('slug').that.is.a('string');
+      });
+      pm.test('[Bisnis] ID kategori baru adalah number positif', function () { pm.expect(res.category_id).to.be.above(0); });
+      pm.environment.set('created_category_id', res.category_id);
+      console.log('[ENV] created_category_id=', res.category_id);
+    language: text/javascript
+order: 2000

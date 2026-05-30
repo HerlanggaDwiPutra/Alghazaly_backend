@@ -1,0 +1,18 @@
+$kind: http-request
+name: "[+] GET /categories — Public"
+url: "{{base_url}}/categories"
+method: GET
+headers:
+  Accept: application/json
+scripts:
+  - type: afterResponse
+    code: |-
+      var res = pm.response.json();
+      pm.test('[HTTP] Status 200 OK', function () { pm.response.to.have.status(200); });
+      pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });
+      pm.test('[Schema] Response adalah array kategori', function () { pm.expect(res).to.be.an('array'); });
+      pm.test('[Bisnis] Setiap kategori memiliki category_name', function () {
+          if (res.length > 0) { pm.expect(res[0]).to.have.property('category_name').that.is.a('string'); }
+      });
+    language: text/javascript
+order: 1000

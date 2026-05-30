@@ -1,0 +1,25 @@
+$kind: http-request
+name: "[-] POST /auth/login — Payload Kosong (422)"
+url: "{{base_url}}/auth/login"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: text
+  content: "{}"
+scripts:
+  - type: afterResponse
+    code: |-
+      var res = pm.response.json();
+      pm.test('[HTTP] Status 422 Unprocessable Entity', function () { pm.response.to.have.status(422); });
+      pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });
+      pm.test('[Schema] Struktur 422 memiliki message dan errors', function () {
+          pm.expect(res).to.have.property('message');
+          pm.expect(res).to.have.property('errors').that.is.an('object');
+      });
+      pm.test('[422] errors.email ada', function () { pm.expect(res.errors).to.have.property('email'); });
+      pm.test('[422] errors.password ada', function () { pm.expect(res.errors).to.have.property('password'); });
+      pm.test('[Keamanan] Response tidak mengandung token', function () { pm.expect(res).to.not.have.property('token'); });
+    language: text/javascript
+order: 4000

@@ -1,0 +1,48 @@
+name: SMA Al Ghazaly — QA Environment
+values:
+  - key: base_url
+    value: 'http://localhost:8080/api'
+  - key: token_superadmin
+    value: ''
+  - key: token_editor
+    value: ''
+  - key: superadmin_email
+    value: superadmin@alghazaly.sch.id
+  - key: superadmin_password
+    value: password
+  - key: editor_email
+    value: budi.editor@alghazaly.sch.id
+  - key: editor_password
+    value: password
+  - key: seeded_registration_number_1
+    value: PPDB-2025-0001
+  - key: seeded_registration_number_2
+    value: PPDB-2025-0002
+  - key: created_category_id
+    value: ''
+  - key: created_post_id
+    value: ''
+  - key: created_post_slug
+    value: ''
+  - key: created_page_id
+    value: ''
+  - key: created_page_slug
+    value: ''
+  - key: created_teacher_id
+    value: ''
+  - key: created_testimonial_id
+    value: ''
+  - key: created_alumni_id
+    value: ''
+  - key: created_gallery_id
+    value: ''
+  - key: created_registration_id
+    value: ''
+  - key: registration_number
+    value: ''
+  - key: created_contact_id
+    value: ''
+  - key: created_user_id
+    value: ''
+  - key: response_time_threshold_ms
+    value: '500'

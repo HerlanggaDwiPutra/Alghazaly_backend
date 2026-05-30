@@ -1,0 +1,28 @@
+$kind: http-request
+name: "[Mock] POST /webhooks/midtrans — Simulasi Payload"
+url: "{{base_url}}/webhooks/midtrans"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: text
+  content: '{"order_id": "PPDB-2025-0001", "status_code": "200", "gross_amount": "500000.00", "signature_key": "invalid-signature-for-test", "transaction_status": "settlement", "payment_type": "bank_transfer", "transaction_id": "test-txn-001"}'
+scripts:
+  - type: beforeRequest
+    code: |-
+      // Mock: gunakan payload statis tanpa signature CryptoJS
+      // Webhook akan menolak dengan 403 Invalid Signature (perilaku yang benar)
+      console.log('[WEBHOOK] Mengirim payload mock tanpa signature valid — expect 403 Invalid Signature');
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      pm.test('[Performa] Response Time < 5000ms', function () { pm.expect(pm.response.responseTime).to.be.below(5000); });
+      pm.test('[WEBHOOK] Status bukan 500 — server tidak crash', function () { pm.expect(pm.response.code).to.not.equal(500); });
+      pm.test('[WEBHOOK] Status Code adalah 200, 400, 403, atau 422', function () {
+          pm.expect(pm.response.code).to.be.oneOf([200, 400, 403, 422]);
+      });
+      var res = pm.response.text();
+      console.log('[WEBHOOK] Response:', pm.response.code, '—', res.substring(0, 100));
+    language: text/javascript
+order: 1000

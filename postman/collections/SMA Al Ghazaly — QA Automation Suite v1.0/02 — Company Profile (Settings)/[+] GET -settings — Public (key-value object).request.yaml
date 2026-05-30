@@ -1,0 +1,22 @@
+$kind: http-request
+name: "[+] GET /settings — Public (key-value object)"
+url: "{{base_url}}/settings"
+method: GET
+headers:
+  Accept: application/json
+scripts:
+  - type: afterResponse
+    code: |-
+      var res = pm.response.json();
+      pm.test('[HTTP] Status 200 OK', function () { pm.response.to.have.status(200); });
+      pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });
+      pm.test('[Schema] Settings mengembalikan objek key-value', function () {
+          pm.expect(res).to.be.an('object');
+          pm.expect(Object.keys(res).length).to.be.above(0, 'Settings tidak boleh kosong');
+      });
+      pm.test('[Bisnis] Mengandung setidaknya satu kunci settings', function () {
+          var keys = Object.keys(res);
+          pm.expect(keys.length).to.be.above(0);
+      });
+    language: text/javascript
+order: 1000

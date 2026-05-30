@@ -1,0 +1,32 @@
+$kind: http-request
+name: "[+] POST /auth/login — Superadmin"
+url: "{{base_url}}/auth/login"
+method: POST
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: text
+  content: '{"email": "{{superadmin_email}}", "password": "{{superadmin_password}}"}'
+scripts:
+  - type: afterResponse
+    code: |-
+      var res = pm.response.json();
+      pm.test('[HTTP] Status 200 OK', function () { pm.response.to.have.status(200); });
+      pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });
+      pm.test('[Schema] Response memiliki token dan user', function () {
+          pm.expect(res).to.have.property('token').that.is.a('string').and.not.empty;
+          pm.expect(res).to.have.property('user').that.is.an('object');
+          pm.expect(res.user).to.have.property('id').that.is.a('number');
+          pm.expect(res.user).to.have.property('email').that.is.a('string');
+          pm.expect(res.user).to.have.property('role_id').that.is.a('number');
+      });
+      pm.test('[Bisnis] Token tidak kosong', function () { pm.expect(res.token).to.be.a('string'); });
+      pm.test('[Bisnis] Email superadmin sesuai', function () { pm.expect(res.user.email).to.equal(pm.environment.get('superadmin_email')); });
+      if (res.token) {
+          pm.environment.set('token_superadmin', res.token);
+          pm.environment.set('token_superadmin_fetched_at', Date.now().toString());
+          console.log('[AUTH] token_superadmin saved.');
+      }
+    language: text/javascript
+order: 1000

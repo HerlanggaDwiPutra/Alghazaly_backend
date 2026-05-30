@@ -1,0 +1,13 @@
+# Use this workspace to collaborate
+workspace:
+  id: d78febc8-ae5e-426d-8be4-88992aaf0ab1
+
+localResources:
+  docs:
+    - ..\vendor\laravel\framework\src\Illuminate\View\LICENSE.md
+
+# Each entry here maps a local resource to one or more corresponding objects in Postman Cloud
+
+cloudResources:
+  collections:
+    ..\postman\collections\SMA Al Ghazaly — QA Automation Suite v1.0: 491facbe-b362-4f71-bc1f-1d7fc6b26ccf

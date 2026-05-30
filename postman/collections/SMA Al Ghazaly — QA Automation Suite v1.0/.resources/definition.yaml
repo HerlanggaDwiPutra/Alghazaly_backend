@@ -1,0 +1,48 @@
+$kind: collection
+description: Koleksi pengujian otomatis REST API SMA Al Ghazaly. Mencakup auth, PPDB, posts, settings, kategori, dashboard, dan webhook. Semua schema disesuaikan dengan struktur respons controller aktual.
+variables:
+  base_url: http://localhost:8080/api
+scripts:
+  - type: http:beforeRequest
+    code: |-
+      // ==========================================================================
+      // COLLECTION-LEVEL PRE-REQUEST SCRIPT — Auto Login & Token Refresh
+      // ==========================================================================
+      var BASE_URL         = pm.environment.get('base_url');
+      var SUPERADMIN_CRED  = { email: pm.environment.get('superadmin_email'), password: pm.environment.get('superadmin_password') };
+      var EDITOR_CRED      = { email: pm.environment.get('editor_email'),     password: pm.environment.get('editor_password') };
+      var TOKEN_TTL_MS = 55 * 60 * 1000;
+
+      function loginAndStoreToken(role, credentials, callback) {
+          var tokenKey     = 'token_' + role;
+          var tokenTimeKey = 'token_' + role + '_fetched_at';
+          var storedToken  = pm.environment.get(tokenKey);
+          var fetchedAt    = parseInt(pm.environment.get(tokenTimeKey) || '0', 10);
+          var isTokenFresh = storedToken && (Date.now() - fetchedAt < TOKEN_TTL_MS);
+          if (isTokenFresh) { if (callback) callback(); return; }
+          pm.sendRequest({
+              url: BASE_URL + '/auth/login', method: 'POST',
+              header: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+              body: { mode: 'raw', raw: JSON.stringify(credentials) }
+          }, function (err, res) {
+              if (err || res.code !== 200) { console.warn('[AUTO-LOGIN] Gagal untuk role:', role, err || res.code); if (callback) callback(); return; }
+              var body = res.json();
+              if (body.token) {
+                  pm.environment.set(tokenKey, body.token);
+                  pm.environment.set(tokenTimeKey, Date.now().toString());
+                  console.log('[AUTO-LOGIN] Token disimpan untuk role:', role);
+              }
+              if (callback) callback();
+          });
+      }
+
+      loginAndStoreToken('superadmin', SUPERADMIN_CRED, function () {
+          loginAndStoreToken('editor', EDITOR_CRED, null);
+      });
+    language: text/javascript
+  - type: http:afterResponse
+    code: |-
+      pm.test('[Global] Server tidak mengembalikan 500 Internal Error', function () {
+          pm.expect(pm.response.code).to.not.equal(500);
+      });
+    language: text/javascript

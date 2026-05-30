@@ -1,0 +1,18 @@
+$kind: http-request
+name: "[-] PUT /admin/settings — Tanpa Auth (401)"
+url: "{{base_url}}/admin/settings"
+method: PUT
+headers:
+  Content-Type: application/json
+  Accept: application/json
+body:
+  type: text
+  content: '{"site_name": "Hacker"}'
+scripts:
+  - type: afterResponse
+    code: |-
+      var res = pm.response.json();
+      pm.test('[Keamanan] Status 401 Unauthorized', function () { pm.response.to.have.status(401); });
+      pm.test('[Keamanan] Response memiliki message', function () { pm.expect(res).to.have.property('message'); });
+    language: text/javascript
+order: 4000

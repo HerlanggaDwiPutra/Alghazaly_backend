@@ -1,0 +1,19 @@
+$kind: http-request
+name: "[+] DELETE /admin/categories/{{created_category_id}} — Hapus (Editor)"
+url: "{{base_url}}/admin/categories/{{created_category_id}}"
+method: DELETE
+headers:
+  Authorization: Bearer {{token_editor}}
+  Accept: application/json
+scripts:
+  - type: afterResponse
+    code: |-
+      var res = pm.response.json();
+      pm.test('[HTTP] Status 200 OK (DELETE mengembalikan message)', function () { pm.response.to.have.status(200); });
+      pm.test('[Performa] Response Time < 3000ms', function () { pm.expect(pm.response.responseTime).to.be.below(3000); });
+      pm.test('[Bisnis] Response mengandung pesan konfirmasi', function () {
+          pm.expect(res).to.have.property('message').that.is.a('string');
+          pm.expect(res.message.toLowerCase()).to.match(/hapus|deleted|dihapus/);
+      });
+    language: text/javascript
+order: 5000

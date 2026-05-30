@@ -1,0 +1,14 @@
+$kind: http-request
+name: "[-] GET /admin/users — Tanpa Auth (401)"
+url: "{{base_url}}/admin/users"
+method: GET
+headers:
+  Accept: application/json
+scripts:
+  - type: afterResponse
+    code: |-
+      var res = pm.response.json();
+      pm.test('[Keamanan] Status 401 Unauthorized', function () { pm.response.to.have.status(401); });
+      pm.test('[Keamanan] Tidak ada data sensitif', function () { pm.expect(res).to.not.have.property('email'); });
+    language: text/javascript
+order: 3000
